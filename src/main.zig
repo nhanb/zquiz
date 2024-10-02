@@ -1,6 +1,16 @@
 const std = @import("std");
 const ws = @import("websocket");
 
+const RpcMethod = enum {
+    get_quizzes,
+    create_room,
+};
+
+const RpcRequest = struct {
+    method: RpcMethod,
+    params: []u8,
+};
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -19,7 +29,7 @@ pub fn main() !void {
 
     // Arbitrary (application-specific) data to pass into each handler
     // Pass void ({}) into listen if you have none
-    var app = App{};
+    var app = App{ .allocator = allocator };
 
     // this blocks
     try server.listen(&app);
@@ -46,13 +56,16 @@ const Handler = struct {
 
     // You must defined a public clientMessage method
     pub fn clientMessage(self: *Handler, data: []const u8) !void {
-        try self.conn.write(data); // echo the message back
+        const parsed = try std.json.parseFromSlice(RpcRequest, self.app.allocator, data, .{});
+        defer parsed.deinit();
+        try self.conn.write(parsed.value.params); // echo the message back
     }
 };
 
 // This is application-specific you want passed into your Handler's
 // init function.
 const App = struct {
+    allocator: std.mem.Allocator,
     // maybe a db pool
     // maybe a list of rooms
 };
