@@ -6,8 +6,6 @@ const socket = new WebSocket("ws://localhost:8001");
 
 // (De)serialization helpers
 function sendSerialized(obj) {
-  console.log("socket:", socket);
-  console.log("obj:", JSON.stringify(obj));
   window.socket = socket;
   socket.send(JSON.stringify(obj));
 }
@@ -19,8 +17,9 @@ const responseHandlers = {};
 
 function registerRpcMethod(method) {
   return (params, responseHandler) => {
-    sendSerialized({ method, params });
-    responseHandlers[ACTION_GET_QUIZZES] = responseHandler;
+    const id = crypto.randomUUID();
+    sendSerialized({ method, params, id });
+    responseHandlers[id] = responseHandler;
   };
 }
 
@@ -31,16 +30,21 @@ const createRoom = registerRpcMethod(ACTION_CREATE_ROOM);
 // handler.
 socket.addEventListener("message", (event) => {
   const resp = deserialize(event.data);
-  const handler = responseHandlers[resp.method];
+  const handler = responseHandlers[resp.id];
   if (!handler) {
     return;
   }
 
-  handler(...resp.contents);
-  delete responseHandlers[resp.method];
+  handler(resp.data);
+  delete responseHandlers[resp.id];
 });
 
+function onRpcReady(callback) {
+  socket.addEventListener("open", callback);
+}
+
 export default {
+  onRpcReady,
   getQuizzes,
   createRoom,
 };

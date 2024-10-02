@@ -1,10 +1,13 @@
-const root = document.getElementById("app");
-
+import rpc from "./rpc.js";
 import RoomRoute from "./room.js";
 import HomeRoute from "./home.js";
 
-m.route.prefix = "";
-m.route(root, "/", {
-  "/": HomeRoute,
-  "/room/:id": RoomRoute,
+rpc.onRpcReady(() => {
+  const root = document.body;
+
+  m.route.prefix = "";
+  m.route(root, "/", {
+    "/": HomeRoute,
+    "/room/:id": RoomRoute,
+  });
 });

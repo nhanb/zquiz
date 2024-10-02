@@ -1,5 +1,6 @@
 const std = @import("std");
 const ws = @import("websocket");
+const io = @import("io");
 
 const RpcMethod = enum {
     get_quizzes,
@@ -7,8 +8,76 @@ const RpcMethod = enum {
 };
 
 const RpcRequest = struct {
-    method: RpcMethod,
-    params: []u8,
+    method: []u8,
+    id: []u8,
+    params: struct {},
+};
+
+const Quiz = struct {
+    name: []const u8,
+    id: []const u8,
+    questions: []const Question,
+};
+
+const Question = struct {
+    question: []const u8,
+    options: [4][]const u8,
+    answer: u8,
+};
+
+const RpcResponseTag = enum { quizzes, roomId };
+
+const RpcResponse = struct {
+    id: []u8,
+    data: union(RpcResponseTag) {
+        quizzes: []const Quiz,
+        roomId: []const u8,
+    },
+};
+
+const quizzes: []const Quiz = &.{
+    .{
+        .name = "Quiz 1",
+        .id = "q1",
+        .questions = &.{
+            .{
+                .question = "How many legs does a normal dog have?",
+                .options = .{
+                    "One",
+                    "Two",
+                    "Three",
+                    "Four",
+                },
+                .answer = 0,
+            },
+            .{
+                .question = "1 + 1 = ?",
+                .options = .{
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                },
+                .answer = 1,
+            },
+        },
+    },
+    .{
+        .name = "Quiz 2",
+        .id = "q2",
+        .questions = &.{
+            .{
+                .question = "Why does the chicken cross the road?",
+                .options = .{
+                    "How should I know?",
+                    "One",
+                    "Five",
+                    "Four",
+                },
+                .answer = 0,
+            },
+        },
+    },
 };
 
 pub fn main() !void {
@@ -29,7 +98,7 @@ pub fn main() !void {
 
     // Arbitrary (application-specific) data to pass into each handler
     // Pass void ({}) into listen if you have none
-    var app = App{ .allocator = allocator };
+    var app = App{};
 
     // this blocks
     try server.listen(&app);
@@ -55,17 +124,41 @@ const Handler = struct {
     }
 
     // You must defined a public clientMessage method
-    pub fn clientMessage(self: *Handler, data: []const u8) !void {
-        const parsed = try std.json.parseFromSlice(RpcRequest, self.app.allocator, data, .{});
+    pub fn clientMessage(self: *Handler, allocator: std.mem.Allocator, data: []const u8) !void {
+        const parsed = try std.json.parseFromSlice(RpcRequest, allocator, data, .{});
         defer parsed.deinit();
-        try self.conn.write(parsed.value.params); // echo the message back
+        const request = parsed.value;
+        if (std.mem.eql(u8, request.method, "get_quizzes")) {
+            var wb = self.conn.writeBuffer(allocator, .text);
+            try std.json.stringify(
+                RpcResponse{
+                    .id = request.id,
+                    .data = .{ .quizzes = quizzes },
+                },
+                .{},
+                wb.writer(),
+            );
+            try wb.flush();
+        } else if (std.mem.eql(u8, request.method, "create_room")) {
+            var wb = self.conn.writeBuffer(allocator, .text);
+            try std.json.stringify(
+                RpcResponse{
+                    .id = request.id,
+                    .data = .{ .roomId = "TODO" },
+                },
+                .{},
+                wb.writer(),
+            );
+            try wb.flush();
+        } else {
+            std.debug.print("Unrecognized method: {s}", .{request.method});
+        }
     }
 };
 
 // This is application-specific you want passed into your Handler's
 // init function.
 const App = struct {
-    allocator: std.mem.Allocator,
     // maybe a db pool
     // maybe a list of rooms
 };
