@@ -18,7 +18,7 @@ const responseHandlers = {};
 function registerRpcMethod(method) {
   return (params, responseHandler) => {
     const id = crypto.randomUUID();
-    sendSerialized({ method, params, id });
+    sendSerialized({ id: id, method: { [method]: { ...params } } });
     responseHandlers[id] = responseHandler;
   };
 }

@@ -3,12 +3,22 @@ import rpc from "./rpc.js";
 let loadingQuizzes = true;
 let quizzes = [];
 
-function createRoomWithQuiz(quizId) {
-  rpc.createRoom({}, (data) => {
-    m.route.set(`/room/${data.roomId}`);
-    m.redraw();
-  });
-}
+const CreateQuizLink = {
+  view: ({ attrs }) =>
+    m(
+      "a",
+      {
+        href: "#",
+        onclick: () => {
+          rpc.createRoom({ quizId: attrs.quiz.id }, (data) => {
+            m.route.set(`/room/${data.roomId}`);
+            m.redraw();
+          });
+        },
+      },
+      attrs.quiz.name,
+    ),
+};
 
 const HomeRoute = {
   oninit: (vnode) => {
@@ -27,27 +37,13 @@ const HomeRoute = {
     if (loadingQuizzes) {
       return m("h1", "Loading quizzes...");
     }
-    return [
+    return m("main", [
       m("h1", "Pick a quiz!"),
       m(
         "ul",
-        quizzes.map((quiz) =>
-          m(
-            "li",
-            m(
-              "a",
-              {
-                href: "#",
-                onclick: () => {
-                  createRoomWithQuiz(quiz.id);
-                },
-              },
-              quiz.name,
-            ),
-          ),
-        ),
+        quizzes.map((quiz) => m("li", m(CreateQuizLink, { quiz: quiz }))),
       ),
-    ];
+    ]);
   },
 };
 

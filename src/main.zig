@@ -8,9 +8,11 @@ const RpcMethod = enum {
 };
 
 const RpcRequest = struct {
-    method: []u8,
     id: []u8,
-    params: struct {},
+    method: union(RpcMethod) {
+        get_quizzes: struct {},
+        create_room: struct { quizId: []const u8 },
+    },
 };
 
 const Quiz = struct {
@@ -128,30 +130,32 @@ const Handler = struct {
         const parsed = try std.json.parseFromSlice(RpcRequest, allocator, data, .{});
         defer parsed.deinit();
         const request = parsed.value;
-        if (std.mem.eql(u8, request.method, "get_quizzes")) {
-            var wb = self.conn.writeBuffer(allocator, .text);
-            try std.json.stringify(
-                RpcResponse{
-                    .id = request.id,
-                    .data = .{ .quizzes = quizzes },
-                },
-                .{},
-                wb.writer(),
-            );
-            try wb.flush();
-        } else if (std.mem.eql(u8, request.method, "create_room")) {
-            var wb = self.conn.writeBuffer(allocator, .text);
-            try std.json.stringify(
-                RpcResponse{
-                    .id = request.id,
-                    .data = .{ .roomId = "TODO" },
-                },
-                .{},
-                wb.writer(),
-            );
-            try wb.flush();
-        } else {
-            std.debug.print("Unrecognized method: {s}", .{request.method});
+        switch (request.method) {
+            .get_quizzes => {
+                var wb = self.conn.writeBuffer(allocator, .text);
+                try std.json.stringify(
+                    RpcResponse{
+                        .id = request.id,
+                        .data = .{ .quizzes = quizzes },
+                    },
+                    .{},
+                    wb.writer(),
+                );
+                try wb.flush();
+            },
+            .create_room => |createRoomData| {
+                var wb = self.conn.writeBuffer(allocator, .text);
+                // TODO generate a room using quizId, return said room's id
+                try std.json.stringify(
+                    RpcResponse{
+                        .id = request.id,
+                        .data = .{ .roomId = "TODO" },
+                    },
+                    .{},
+                    wb.writer(),
+                );
+                try wb.flush();
+            },
         }
     }
 };
